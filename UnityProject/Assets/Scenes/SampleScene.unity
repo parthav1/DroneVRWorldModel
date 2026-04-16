@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 330585545}
   - component: {fileID: 330585544}
   - component: {fileID: 330585547}
+  - component: {fileID: 330585548}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -256,6 +257,39 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &330585548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 88b835a54be4c4074a58a7592514de73, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DroneVR.Experiment.DroneRigController
+  controlMode: 0
+  allowMouseLookInVR: 0
+  lockCursorOnPlay: 1
+  moveSpeed: 8
+  verticalSpeed: 5
+  sprintMultiplier: 2
+  smoothing: 8
+  mouseSensitivity: 50
+  pitchMin: -85
+  pitchMax: 85
+  invertMouseY: 0
+  spawnPosition: {x: 0, y: 3, z: -10}
+  spawnEulerAngles: {x: 0, y: 0, z: 0}
+  resetKey: 114
+  pointerLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  pointerMaxDistance: 500
+  pointTurnSpeed: 6
+  pointerVisual: {fileID: 0}
+  pointerVisualOffset: {x: 0, y: 0.15, z: 0}
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -485,7 +519,8 @@ PrefabInstance:
       value: LeelandConstruction
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: -678909663146211545, guid: be556c444ad2c432d9e05ad5561bb2bb, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: -4161369568681901532, guid: be556c444ad2c432d9e05ad5561bb2bb, type: 3}
