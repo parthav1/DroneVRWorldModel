@@ -15,16 +15,8 @@ namespace DroneVR.Experiment
             VR
         }
 
-        public enum NavigationMode
-        {
-            FreeFly,
-            PointAndFly
-        }
-
         [Header("Mode")]
         [SerializeField] private ControlMode controlMode = ControlMode.AutoDetect;
-        [SerializeField] private NavigationMode navigationMode = NavigationMode.FreeFly;
-        [SerializeField] private KeyCode toggleNavigationModeKey = KeyCode.F;
         [SerializeField] private bool allowMouseLookInVR = false;
         [SerializeField] private bool lockCursorOnPlay = true;
 
@@ -36,7 +28,6 @@ namespace DroneVR.Experiment
 
         [Header("Look")]
         [SerializeField] private float mouseSensitivity = 2f;
-        [SerializeField] private float controllerTurnSpeed = 90f;
         [SerializeField] private float pitchMin = -85f;
         [SerializeField] private float pitchMax = 85f;
         [SerializeField] private bool invertMouseY = false;
@@ -52,7 +43,6 @@ namespace DroneVR.Experiment
         [SerializeField] private float pointTurnSpeed = 6f;
         [SerializeField] private Transform pointerVisual;
         [SerializeField] private Vector3 pointerVisualOffset = new Vector3(0f, 0.15f, 0f);
-        [SerializeField] private bool showDebugRay = true;
 
         private Vector3 currentVelocity;
         private float yaw;
@@ -62,7 +52,6 @@ namespace DroneVR.Experiment
         private bool hasPointerHit;
 
         public string ActiveModeLabel => ResolveMode() == ControlMode.VR ? "VR" : "Desktop";
-        public string NavigationModeLabel => navigationMode == NavigationMode.PointAndFly ? "PointAndFly" : "FreeFly";
 
         private void Awake()
         {
@@ -87,30 +76,8 @@ namespace DroneVR.Experiment
                 ResetToSpawn();
             }
 
-            if (WasKeyPressed(toggleNavigationModeKey))
-            {
-                ToggleNavigationMode();
-            }
-
             UpdatePointer();
-
-            if (navigationMode == NavigationMode.PointAndFly)
-            {
-                UpdatePointAndFlyMovement();
-            }
-            else if (ResolveMode() == ControlMode.VR)
-            {
-                UpdateVRMovement();
-                if (allowMouseLookInVR)
-                {
-                    UpdateDesktopLook();
-                }
-            }
-            else
-            {
-                UpdateDesktopLook();
-                UpdateDesktopMovement();
-            }
+            UpdatePointAndFlyMovement();
 
             if (WasKeyPressed(KeyCode.Escape))
             {
@@ -150,108 +117,17 @@ namespace DroneVR.Experiment
             return spawnPosition;
         }
 
-        public void SetNavigationMode(NavigationMode mode)
-        {
-            navigationMode = mode;
-            currentVelocity = Vector3.zero;
-        }
-
-        public void ToggleNavigationMode()
-        {
-            SetNavigationMode(
-                navigationMode == NavigationMode.FreeFly
-                    ? NavigationMode.PointAndFly
-                    : NavigationMode.FreeFly);
-        }
-
-        private void UpdateDesktopMovement()
-        {
-            Vector3 planarInput = new Vector3(
-                GetAxisRaw(KeyCode.A, KeyCode.D),
-                0f,
-                GetAxisRaw(KeyCode.S, KeyCode.W));
-
-            float verticalInput = GetAxisRaw(KeyCode.Q, KeyCode.E);
-            ApplyMovement(planarInput, verticalInput);
-        }
-
-        private void UpdateVRMovement()
-        {
-            Vector2 planarInput = Vector2.zero;
-            float verticalInput = 0f;
-            float turnInput = 0f;
-
-            if (TryGetThumbstick(InputDeviceCharacteristics.Left | InputDeviceCharacteristics.Controller, out Vector2 leftStick))
-            {
-                planarInput = leftStick;
-            }
-
-            if (TryGetThumbstick(InputDeviceCharacteristics.Right | InputDeviceCharacteristics.Controller, out Vector2 rightStick))
-            {
-                turnInput = rightStick.x;
-            }
-
-            if (TryGetButton(InputDeviceCharacteristics.Left | InputDeviceCharacteristics.Controller, XRCommonUsages.primaryButton, out bool ascendPressed) && ascendPressed)
-            {
-                verticalInput += 1f;
-            }
-
-            if (TryGetButton(InputDeviceCharacteristics.Left | InputDeviceCharacteristics.Controller, XRCommonUsages.secondaryButton, out bool descendPressed) && descendPressed)
-            {
-                verticalInput -= 1f;
-            }
-
-            transform.Rotate(Vector3.up, turnInput * controllerTurnSpeed * Time.deltaTime, Space.World);
-            ApplyMovement(new Vector3(planarInput.x, 0f, planarInput.y), verticalInput);
-        }
-
         private void UpdatePointAndFlyMovement()
         {
-            if (ResolveMode() != ControlMode.VR)
+            if (ResolveMode() == ControlMode.VR)
+            {
+                UpdateVRPointerFlight();
+            }
+            else
             {
                 UpdateDesktopLook();
+                UpdateDesktopPointerFlight();
             }
-
-            Vector3 movementForward = transform.forward.normalized;
-            Vector3 rotationForward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
-            if (hasPointerHit)
-            {
-                Vector3 pointerDirection = currentPointerHit.point - transform.position;
-                if (pointerDirection.sqrMagnitude > 0.001f)
-                {
-                    movementForward = pointerDirection.normalized;
-
-                    Vector3 planarPointerDirection = Vector3.ProjectOnPlane(pointerDirection, Vector3.up);
-                    if (planarPointerDirection.sqrMagnitude > 0.001f)
-                    {
-                        rotationForward = planarPointerDirection.normalized;
-                    }
-
-                    Quaternion targetRotation = Quaternion.LookRotation(rotationForward, Vector3.up);
-                    transform.rotation = Quaternion.Slerp(
-                        transform.rotation,
-                        targetRotation,
-                        1f - Mathf.Exp(-pointTurnSpeed * Time.deltaTime));
-
-                    Vector3 euler = transform.eulerAngles;
-                    yaw = euler.y;
-                    pitch = NormalizePitch(euler.x);
-                }
-            }
-
-            Vector3 planarInput = new Vector3(
-                GetAxisRaw(KeyCode.A, KeyCode.D),
-                0f,
-                GetAxisRaw(KeyCode.S, KeyCode.W));
-            float verticalInput = GetAxisRaw(KeyCode.Q, KeyCode.E);
-
-            Vector3 referenceRight = Vector3.Cross(Vector3.up, rotationForward).normalized;
-            if (referenceRight.sqrMagnitude < 0.001f)
-            {
-                referenceRight = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
-            }
-
-            ApplyMovement(planarInput, verticalInput, movementForward, referenceRight);
         }
 
         private void UpdateDesktopLook()
@@ -268,13 +144,6 @@ namespace DroneVR.Experiment
             yaw += mouseX;
             pitch = Mathf.Clamp(pitch + mouseY, pitchMin, pitchMax);
             transform.rotation = Quaternion.Euler(pitch, yaw, 0f);
-        }
-
-        private void ApplyMovement(Vector3 planarInput, float verticalInput)
-        {
-            Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
-            Vector3 right = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
-            ApplyMovement(planarInput, verticalInput, forward, right);
         }
 
         private void ApplyMovement(Vector3 planarInput, float verticalInput, Vector3 forward, Vector3 right)
@@ -307,11 +176,6 @@ namespace DroneVR.Experiment
             }
 
             Ray pointerRay = CreatePointerRay(activeCamera);
-            if (showDebugRay)
-            {
-                Debug.DrawRay(pointerRay.origin, pointerRay.direction * pointerMaxDistance, hasPointerHit ? Color.green : Color.cyan);
-            }
-
             if (Physics.Raycast(pointerRay, out RaycastHit hit, pointerMaxDistance, pointerLayers, QueryTriggerInteraction.Ignore))
             {
                 currentPointerHit = hit;
@@ -332,6 +196,78 @@ namespace DroneVR.Experiment
             }
 
             return activeCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+        }
+
+        private void UpdateDesktopPointerFlight()
+        {
+            Vector3 planarInput = new Vector3(
+                GetAxisRaw(KeyCode.A, KeyCode.D),
+                0f,
+                GetAxisRaw(KeyCode.S, KeyCode.W));
+            float verticalInput = GetAxisRaw(KeyCode.Q, KeyCode.E);
+
+            ApplyPointerDrivenMovement(planarInput, verticalInput);
+        }
+
+        private void UpdateVRPointerFlight()
+        {
+            Vector2 planarInput = Vector2.zero;
+            float verticalInput = 0f;
+
+            if (TryGetThumbstick(InputDeviceCharacteristics.Left | InputDeviceCharacteristics.Controller, out Vector2 leftStick))
+            {
+                planarInput = leftStick;
+            }
+
+            if (TryGetButton(InputDeviceCharacteristics.Left | InputDeviceCharacteristics.Controller, XRCommonUsages.primaryButton, out bool ascendPressed) && ascendPressed)
+            {
+                verticalInput += 1f;
+            }
+
+            if (TryGetButton(InputDeviceCharacteristics.Left | InputDeviceCharacteristics.Controller, XRCommonUsages.secondaryButton, out bool descendPressed) && descendPressed)
+            {
+                verticalInput -= 1f;
+            }
+
+            ApplyPointerDrivenMovement(new Vector3(planarInput.x, 0f, planarInput.y), verticalInput);
+        }
+
+        private void ApplyPointerDrivenMovement(Vector3 planarInput, float verticalInput)
+        {
+            Vector3 movementForward = transform.forward.normalized;
+            Vector3 rotationForward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+            if (hasPointerHit)
+            {
+                Vector3 pointerDirection = currentPointerHit.point - transform.position;
+                if (pointerDirection.sqrMagnitude > 0.001f)
+                {
+                    movementForward = pointerDirection.normalized;
+
+                    Vector3 planarPointerDirection = Vector3.ProjectOnPlane(pointerDirection, Vector3.up);
+                    if (planarPointerDirection.sqrMagnitude > 0.001f)
+                    {
+                        rotationForward = planarPointerDirection.normalized;
+                    }
+
+                    Quaternion targetRotation = Quaternion.LookRotation(rotationForward, Vector3.up);
+                    transform.rotation = Quaternion.Slerp(
+                        transform.rotation,
+                        targetRotation,
+                        1f - Mathf.Exp(-pointTurnSpeed * Time.deltaTime));
+
+                    Vector3 euler = transform.eulerAngles;
+                    yaw = euler.y;
+                    pitch = NormalizePitch(euler.x);
+                }
+            }
+
+            Vector3 referenceRight = Vector3.Cross(Vector3.up, rotationForward).normalized;
+            if (referenceRight.sqrMagnitude < 0.001f)
+            {
+                referenceRight = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
+            }
+
+            ApplyMovement(planarInput, verticalInput, movementForward, referenceRight);
         }
 
         private void SetPointerVisual(bool isVisible, Vector3 position, Vector3 normal)
@@ -412,7 +348,6 @@ namespace DroneVR.Experiment
                 case KeyCode.W: return Key.W;
                 case KeyCode.Q: return Key.Q;
                 case KeyCode.E: return Key.E;
-                case KeyCode.F: return Key.F;
                 case KeyCode.R: return Key.R;
                 case KeyCode.T: return Key.T;
                 case KeyCode.N: return Key.N;
@@ -455,6 +390,24 @@ namespace DroneVR.Experiment
             cursorLocked = shouldLock;
             Cursor.lockState = shouldLock ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !shouldLock;
+        }
+
+        private void OnGUI()
+        {
+            DrawCrosshair(hasPointerHit ? Color.green : Color.white);
+        }
+
+        private static void DrawCrosshair(Color color)
+        {
+            Color previousColor = GUI.color;
+            GUI.color = color;
+
+            const float size = 8f;
+            float x = (Screen.width - size) * 0.5f;
+            float y = (Screen.height - size) * 0.5f;
+            GUI.Box(new Rect(x, y, size, size), GUIContent.none);
+
+            GUI.color = previousColor;
         }
 
     }
