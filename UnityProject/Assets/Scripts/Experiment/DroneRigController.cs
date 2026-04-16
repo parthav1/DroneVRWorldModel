@@ -24,6 +24,7 @@ namespace DroneVR.Experiment
         [Header("Mode")]
         [SerializeField] private ControlMode controlMode = ControlMode.AutoDetect;
         [SerializeField] private NavigationMode navigationMode = NavigationMode.FreeFly;
+        [SerializeField] private KeyCode toggleNavigationModeKey = KeyCode.F;
         [SerializeField] private bool allowMouseLookInVR = false;
         [SerializeField] private bool lockCursorOnPlay = true;
 
@@ -48,23 +49,20 @@ namespace DroneVR.Experiment
         [Header("Point And Fly")]
         [SerializeField] private LayerMask pointerLayers = ~0;
         [SerializeField] private float pointerMaxDistance = 500f;
-        [SerializeField] private float arrivalDistance = 0.75f;
-        [SerializeField] private float destinationSlowdownDistance = 4f;
-        [SerializeField] private float destinationTurnSpeed = 6f;
-        [SerializeField] private KeyCode setDestinationKey = KeyCode.Mouse0;
+        [SerializeField] private float pointTurnSpeed = 6f;
         [SerializeField] private Transform pointerVisual;
         [SerializeField] private Vector3 pointerVisualOffset = new Vector3(0f, 0.15f, 0f);
+        [SerializeField] private bool showDebugRay = true;
 
         private Vector3 currentVelocity;
         private float yaw;
         private float pitch;
         private bool cursorLocked;
-        private Vector3 currentDestination;
-        private bool hasDestination;
         private RaycastHit currentPointerHit;
         private bool hasPointerHit;
 
         public string ActiveModeLabel => ResolveMode() == ControlMode.VR ? "VR" : "Desktop";
+        public string NavigationModeLabel => navigationMode == NavigationMode.PointAndFly ? "PointAndFly" : "FreeFly";
 
         private void Awake()
         {
@@ -87,6 +85,11 @@ namespace DroneVR.Experiment
             if (WasKeyPressed(resetKey))
             {
                 ResetToSpawn();
+            }
+
+            if (WasKeyPressed(toggleNavigationModeKey))
+            {
+                ToggleNavigationMode();
             }
 
             UpdatePointer();
@@ -128,7 +131,6 @@ namespace DroneVR.Experiment
             currentVelocity = Vector3.zero;
             yaw = spawnEulerAngles.y;
             pitch = NormalizePitch(spawnEulerAngles.x);
-            hasDestination = false;
         }
 
         public void ResetToTransform(Transform targetTransform)
@@ -151,7 +153,15 @@ namespace DroneVR.Experiment
         public void SetNavigationMode(NavigationMode mode)
         {
             navigationMode = mode;
-            hasDestination = false;
+            currentVelocity = Vector3.zero;
+        }
+
+        public void ToggleNavigationMode()
+        {
+            SetNavigationMode(
+                navigationMode == NavigationMode.FreeFly
+                    ? NavigationMode.PointAndFly
+                    : NavigationMode.FreeFly);
         }
 
         private void UpdateDesktopMovement()
@@ -197,39 +207,51 @@ namespace DroneVR.Experiment
 
         private void UpdatePointAndFlyMovement()
         {
-            if (WasKeyPressed(setDestinationKey) && hasPointerHit)
+            if (ResolveMode() != ControlMode.VR)
             {
-                currentDestination = currentPointerHit.point;
-                hasDestination = true;
+                UpdateDesktopLook();
             }
 
-            if (!hasDestination)
+            Vector3 movementForward = transform.forward.normalized;
+            Vector3 rotationForward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+            if (hasPointerHit)
             {
-                currentVelocity = Vector3.Lerp(currentVelocity, Vector3.zero, 1f - Mathf.Exp(-smoothing * Time.deltaTime));
-                return;
+                Vector3 pointerDirection = currentPointerHit.point - transform.position;
+                if (pointerDirection.sqrMagnitude > 0.001f)
+                {
+                    movementForward = pointerDirection.normalized;
+
+                    Vector3 planarPointerDirection = Vector3.ProjectOnPlane(pointerDirection, Vector3.up);
+                    if (planarPointerDirection.sqrMagnitude > 0.001f)
+                    {
+                        rotationForward = planarPointerDirection.normalized;
+                    }
+
+                    Quaternion targetRotation = Quaternion.LookRotation(rotationForward, Vector3.up);
+                    transform.rotation = Quaternion.Slerp(
+                        transform.rotation,
+                        targetRotation,
+                        1f - Mathf.Exp(-pointTurnSpeed * Time.deltaTime));
+
+                    Vector3 euler = transform.eulerAngles;
+                    yaw = euler.y;
+                    pitch = NormalizePitch(euler.x);
+                }
             }
 
-            Vector3 toDestination = currentDestination - transform.position;
-            float distance = toDestination.magnitude;
-            if (distance <= arrivalDistance)
+            Vector3 planarInput = new Vector3(
+                GetAxisRaw(KeyCode.A, KeyCode.D),
+                0f,
+                GetAxisRaw(KeyCode.S, KeyCode.W));
+            float verticalInput = GetAxisRaw(KeyCode.Q, KeyCode.E);
+
+            Vector3 referenceRight = Vector3.Cross(Vector3.up, rotationForward).normalized;
+            if (referenceRight.sqrMagnitude < 0.001f)
             {
-                hasDestination = false;
-                currentVelocity = Vector3.zero;
-                return;
+                referenceRight = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
             }
 
-            Vector3 direction = toDestination.normalized;
-            Quaternion targetRotation = Quaternion.LookRotation(direction, Vector3.up);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 1f - Mathf.Exp(-destinationTurnSpeed * Time.deltaTime));
-
-            float slowFactor = Mathf.Clamp01(distance / Mathf.Max(destinationSlowdownDistance, arrivalDistance + 0.01f));
-            Vector3 desiredVelocity = direction * moveSpeed * Mathf.Max(0.25f, slowFactor);
-            currentVelocity = Vector3.Lerp(currentVelocity, desiredVelocity, 1f - Mathf.Exp(-smoothing * Time.deltaTime));
-            transform.position += currentVelocity * Time.deltaTime;
-
-            Vector3 euler = transform.eulerAngles;
-            yaw = euler.y;
-            pitch = NormalizePitch(euler.x);
+            ApplyMovement(planarInput, verticalInput, movementForward, referenceRight);
         }
 
         private void UpdateDesktopLook()
@@ -250,11 +272,16 @@ namespace DroneVR.Experiment
 
         private void ApplyMovement(Vector3 planarInput, float verticalInput)
         {
+            Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+            Vector3 right = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
+            ApplyMovement(planarInput, verticalInput, forward, right);
+        }
+
+        private void ApplyMovement(Vector3 planarInput, float verticalInput, Vector3 forward, Vector3 right)
+        {
             planarInput = Vector3.ClampMagnitude(planarInput, 1f);
             float speedMultiplier = IsKeyHeld(KeyCode.LeftShift) ? sprintMultiplier : 1f;
 
-            Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
-            Vector3 right = Vector3.ProjectOnPlane(transform.right, Vector3.up).normalized;
             Vector3 desiredVelocity =
                 (forward * planarInput.z + right * planarInput.x) * moveSpeed * speedMultiplier +
                 Vector3.up * verticalInput * verticalSpeed;
@@ -280,6 +307,11 @@ namespace DroneVR.Experiment
             }
 
             Ray pointerRay = CreatePointerRay(activeCamera);
+            if (showDebugRay)
+            {
+                Debug.DrawRay(pointerRay.origin, pointerRay.direction * pointerMaxDistance, hasPointerHit ? Color.green : Color.cyan);
+            }
+
             if (Physics.Raycast(pointerRay, out RaycastHit hit, pointerMaxDistance, pointerLayers, QueryTriggerInteraction.Ignore))
             {
                 currentPointerHit = hit;
@@ -380,6 +412,7 @@ namespace DroneVR.Experiment
                 case KeyCode.W: return Key.W;
                 case KeyCode.Q: return Key.Q;
                 case KeyCode.E: return Key.E;
+                case KeyCode.F: return Key.F;
                 case KeyCode.R: return Key.R;
                 case KeyCode.T: return Key.T;
                 case KeyCode.N: return Key.N;
@@ -423,5 +456,6 @@ namespace DroneVR.Experiment
             Cursor.lockState = shouldLock ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !shouldLock;
         }
+
     }
 }
