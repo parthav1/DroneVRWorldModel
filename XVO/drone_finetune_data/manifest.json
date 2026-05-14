@@ -1,0 +1,40 @@
+{
+  "sequences": {
+    "lawnmower_20260501_045552_seed34": {
+      "canonical_rows": 96008,
+      "active_rows": 48004,
+      "matched_rows": 9601,
+      "pairs": 28796,
+      "source": "poses"
+    },
+    "randomwalk_seed12345_20260501_053626_seed12345": {
+      "canonical_rows": 96012,
+      "active_rows": 48006,
+      "matched_rows": 9602,
+      "pairs": 28799,
+      "source": "poses"
+    },
+    "randomwalk_seed67890_20260501_061739_seed67890": {
+      "canonical_rows": 96014,
+      "active_rows": 48007,
+      "matched_rows": 9602,
+      "pairs": 28799,
+      "source": "poses"
+    }
+  },
+  "splits": {
+    "train": [
+      "randomwalk_seed67890_20260501_061739_seed67890"
+    ],
+    "val": [
+      "randomwalk_seed12345_20260501_053626_seed12345"
+    ],
+    "test": [
+      "lawnmower_20260501_045552_seed34"
+    ]
+  },
+  "rows": {
+    "canonical": 288034,
+    "pairs": 86394
+  }
+}
