@@ -17,7 +17,6 @@ namespace DroneVR.Experiment
 
         [Header("Mode")]
         [SerializeField] private ControlMode controlMode = ControlMode.AutoDetect;
-        [SerializeField] private bool allowMouseLookInVR = false;
         [SerializeField] private bool lockCursorOnPlay = true;
 
         [Header("Movement")]

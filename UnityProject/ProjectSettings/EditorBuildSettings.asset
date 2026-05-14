@@ -6,8 +6,11 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
+    path: Assets/Scenes/bakerpark.unity
     guid: 99c9720ab356a0642a771bea13969a05
   m_configObjects:
+    Unity.XR.Oculus.Settings: {fileID: 11400000, guid: 841c32290c6bd4b57ae4632a8aadf8e1, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 6f3ffbd29115f4dc0828f83716dc9add, type: 2}
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: bdad5aadbdcb24a2dbbae1fdc5dff210, type: 2}
   m_UseUCBPForAssetBundles: 0
