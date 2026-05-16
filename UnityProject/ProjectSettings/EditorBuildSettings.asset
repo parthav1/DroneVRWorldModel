@@ -5,9 +5,15 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/bakerpark.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 0
+    path: Assets/Scenes/leeland2.unity
+    guid: 000f7ac78801e47ffb3ab8c9ea622236
+  - enabled: 1
+    path: Assets/Scenes/wormansmill.unity
+    guid: 4794a7622f5164519bccba26e8842878
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: 841c32290c6bd4b57ae4632a8aadf8e1, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

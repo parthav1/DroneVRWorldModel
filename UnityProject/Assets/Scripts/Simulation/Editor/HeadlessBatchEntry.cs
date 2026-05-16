@@ -10,24 +10,25 @@ namespace DroneVR.Simulation.Editor
     public static class HeadlessBatchEntry
     {
         private const string DefaultScenePath = "Assets/Scenes/leeland.unity";
-        private static string[] sceneQueue;
-        private static int sceneIndex;
-        private static bool quitWhenAllScenesFinish;
-        private static int randomWalkRunCount;
-        private static float randomWalkDurationSeconds;
-        private static float sampleFrequencyHz;
-        private static int captureSampleStride;
-        private static int maxFramesPerRun;
+        private const string ActiveKey = "DroneVR.HeadlessBatch.Active";
+        private const string SceneQueueKey = "DroneVR.HeadlessBatch.SceneQueue";
+        private const string SceneIndexKey = "DroneVR.HeadlessBatch.SceneIndex";
+        private const string QuitWhenFinishedKey = "DroneVR.HeadlessBatch.QuitWhenFinished";
+        private const string RandomWalkRunsKey = "DroneVR.HeadlessBatch.RandomWalkRuns";
+        private const string RunDurationKey = "DroneVR.HeadlessBatch.RunDurationSeconds";
+        private const string SampleFrequencyKey = "DroneVR.HeadlessBatch.SampleFrequencyHz";
+        private const string CaptureStrideKey = "DroneVR.HeadlessBatch.CaptureSampleStride";
+        private const string MaxFramesKey = "DroneVR.HeadlessBatch.MaxFramesPerRun";
+
+        [InitializeOnLoadMethod]
+        private static void Initialize()
+        {
+            RegisterPlayModeCallback();
+        }
 
         public static void Run()
         {
             string[] scenePaths = GetScenePaths();
-            quitWhenAllScenesFinish = GetBoolArgument("-quitWhenFinished", true);
-            randomWalkRunCount = GetIntArgument("-randomWalkRuns", 10);
-            randomWalkDurationSeconds = GetFloatArgument("-runDurationSeconds", 500f);
-            sampleFrequencyHz = GetFloatArgument("-sampleFrequencyHz", 20f);
-            captureSampleStride = GetIntArgument("-captureSampleStride", 20);
-            maxFramesPerRun = GetIntArgument("-maxFramesPerRun", 500);
 
             if (scenePaths.Length == 0)
             {
@@ -36,15 +37,41 @@ namespace DroneVR.Simulation.Editor
                 return;
             }
 
-            sceneQueue = scenePaths;
-            sceneIndex = 0;
+            SessionState.SetBool(ActiveKey, true);
+            SessionState.SetString(SceneQueueKey, string.Join("\n", scenePaths));
+            SessionState.SetInt(SceneIndexKey, 0);
+            SessionState.SetBool(QuitWhenFinishedKey, GetBoolArgument("-quitWhenFinished", true));
+            SessionState.SetInt(RandomWalkRunsKey, GetIntArgument("-randomWalkRuns", 10));
+            SessionState.SetFloat(RunDurationKey, GetFloatArgument("-runDurationSeconds", 500f));
+            SessionState.SetFloat(SampleFrequencyKey, GetFloatArgument("-sampleFrequencyHz", 20f));
+            SessionState.SetInt(CaptureStrideKey, GetIntArgument("-captureSampleStride", 20));
+            SessionState.SetInt(MaxFramesKey, GetIntArgument("-maxFramesPerRun", 500));
+
+            RegisterPlayModeCallback();
+            RunCurrentScene();
+        }
+
+        private static void RegisterPlayModeCallback()
+        {
             EditorApplication.playModeStateChanged -= HandlePlayModeStateChanged;
             EditorApplication.playModeStateChanged += HandlePlayModeStateChanged;
-            RunCurrentScene();
         }
 
         private static void RunCurrentScene()
         {
+            string[] sceneQueue = GetPersistedSceneQueue();
+            int sceneIndex = SessionState.GetInt(SceneIndexKey, 0);
+            if (!SessionState.GetBool(ActiveKey, false) || sceneQueue.Length == 0)
+            {
+                return;
+            }
+
+            if (sceneIndex < 0 || sceneIndex >= sceneQueue.Length)
+            {
+                FinishBatch();
+                return;
+            }
+
             string scenePath = sceneQueue[sceneIndex];
             if (!File.Exists(scenePath))
             {
@@ -66,7 +93,7 @@ namespace DroneVR.Simulation.Editor
 
             ConfigureBatchRunner(batchRunner, false);
 
-            Debug.Log($"Starting headless random-walk batch for scene: {scenePath}. Runs: {randomWalkRunCount}, duration: {randomWalkDurationSeconds}s.");
+            Debug.Log($"Starting headless random-walk batch for scene: {scenePath}. Runs: {SessionState.GetInt(RandomWalkRunsKey, 10)}, duration: {SessionState.GetFloat(RunDurationKey, 500f)}s.");
             EditorApplication.EnterPlaymode();
         }
 
@@ -77,8 +104,8 @@ namespace DroneVR.Simulation.Editor
             SetBool(serializedRunner, "exitPlayModeWhenFinished", true);
             SetBool(serializedRunner, "quitApplicationWhenFinished", quitWhenFinished);
             SetBool(serializedRunner, "generateRandomWalkBatchOnStart", true);
-            SetInt(serializedRunner, "randomWalkRunCount", randomWalkRunCount);
-            SetFloat(serializedRunner, "randomWalkDurationSeconds", randomWalkDurationSeconds);
+            SetInt(serializedRunner, "randomWalkRunCount", SessionState.GetInt(RandomWalkRunsKey, 10));
+            SetFloat(serializedRunner, "randomWalkDurationSeconds", SessionState.GetFloat(RunDurationKey, 500f));
             serializedRunner.ApplyModifiedPropertiesWithoutUndo();
 
             TaskManager taskManager = UnityEngine.Object.FindFirstObjectByType<TaskManager>();
@@ -93,7 +120,7 @@ namespace DroneVR.Simulation.Editor
             if (trajectoryLogger != null)
             {
                 SerializedObject serializedLogger = new SerializedObject(trajectoryLogger);
-                SetFloat(serializedLogger, "sampleFrequencyHz", sampleFrequencyHz);
+                SetFloat(serializedLogger, "sampleFrequencyHz", SessionState.GetFloat(SampleFrequencyKey, 20f));
                 serializedLogger.ApplyModifiedPropertiesWithoutUndo();
             }
 
@@ -101,33 +128,63 @@ namespace DroneVR.Simulation.Editor
             if (frameCapture != null)
             {
                 SerializedObject serializedFrameCapture = new SerializedObject(frameCapture);
-                SetInt(serializedFrameCapture, "captureSampleStride", captureSampleStride);
-                SetInt(serializedFrameCapture, "maxFramesPerRun", maxFramesPerRun);
+                SetInt(serializedFrameCapture, "captureSampleStride", SessionState.GetInt(CaptureStrideKey, 20));
+                SetInt(serializedFrameCapture, "maxFramesPerRun", SessionState.GetInt(MaxFramesKey, 500));
                 serializedFrameCapture.ApplyModifiedPropertiesWithoutUndo();
             }
         }
 
         private static void HandlePlayModeStateChanged(PlayModeStateChange state)
         {
-            if (state != PlayModeStateChange.EnteredEditMode || sceneQueue == null)
+            if (state != PlayModeStateChange.EnteredEditMode || !SessionState.GetBool(ActiveKey, false))
             {
                 return;
             }
 
+            string[] sceneQueue = GetPersistedSceneQueue();
+            int sceneIndex = SessionState.GetInt(SceneIndexKey, 0);
             sceneIndex++;
+            SessionState.SetInt(SceneIndexKey, sceneIndex);
             if (sceneIndex >= sceneQueue.Length)
             {
-                EditorApplication.playModeStateChanged -= HandlePlayModeStateChanged;
-                Debug.Log("Headless multi-scene batch finished.");
-                if (quitWhenAllScenesFinish)
-                {
-                    EditorApplication.Exit(0);
-                }
-
+                FinishBatch();
                 return;
             }
 
             EditorApplication.delayCall += RunCurrentScene;
+        }
+
+        private static void FinishBatch()
+        {
+            bool shouldQuit = SessionState.GetBool(QuitWhenFinishedKey, true);
+            ClearBatchState();
+            EditorApplication.playModeStateChanged -= HandlePlayModeStateChanged;
+            Debug.Log("Headless multi-scene batch finished.");
+            if (shouldQuit)
+            {
+                EditorApplication.Exit(0);
+            }
+        }
+
+        private static void ClearBatchState()
+        {
+            SessionState.EraseBool(ActiveKey);
+            SessionState.EraseString(SceneQueueKey);
+            SessionState.EraseInt(SceneIndexKey);
+            SessionState.EraseBool(QuitWhenFinishedKey);
+            SessionState.EraseInt(RandomWalkRunsKey);
+            SessionState.EraseFloat(RunDurationKey);
+            SessionState.EraseFloat(SampleFrequencyKey);
+            SessionState.EraseInt(CaptureStrideKey);
+            SessionState.EraseInt(MaxFramesKey);
+        }
+
+        private static string[] GetPersistedSceneQueue()
+        {
+            string sceneQueue = SessionState.GetString(SceneQueueKey, string.Empty);
+            return string.IsNullOrWhiteSpace(sceneQueue)
+                ? Array.Empty<string>()
+                : sceneQueue.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
         }
 
         private static void SetBool(SerializedObject serializedObject, string propertyName, bool value)
