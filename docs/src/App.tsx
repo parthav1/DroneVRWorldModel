@@ -317,21 +317,6 @@ function App() {
               </GlassCard>
             ))}
           </div>
-          <div className="mt-10 grid gap-6 lg:grid-cols-2">
-            {roleCards.map((role) => (
-              <GlassCard key={role.name}>
-                <div className="text-sm font-black uppercase tracking-[0.3em] text-cyan-200/80">Project role</div>
-                <h3 className="mt-3 text-3xl font-black text-white">{role.name}</h3>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  {role.work.map((item) => (
-                    <div key={item} className="rounded-2xl bg-white/[0.06] p-4 text-sm font-bold text-slate-200">
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </GlassCard>
-            ))}
-          </div>
         </section>
 
         <section id="dataset" className="mx-auto max-w-7xl px-5 py-24">
