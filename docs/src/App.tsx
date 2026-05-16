@@ -12,8 +12,10 @@ type Figure = {
   caption: string;
 };
 
+const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
+
 const metrics: Metric[] = [
-  { value: "7", label: "photogrammetry scenes", tone: "text-cyan-200" },
+  { value: "7", label: "3D scenes", tone: "text-cyan-200" },
   { value: "70", label: "random-walk flights", tone: "text-lime-200" },
   { value: "500", label: "frames per run", tone: "text-orange-200" },
   { value: "~30GB", label: "generated dataset", tone: "text-pink-200" },
@@ -30,17 +32,17 @@ const pipeline = [
 
 const figures: Figure[] = [
   {
-    src: "/figures/ground_truth_random_walk_only.png",
+    src: asset("figures/ground_truth_random_walk_only.png"),
     title: "Ground-truth random walk",
     caption: "Unity records exact camera pose while the drone moves through a reconstructed scene.",
   },
   {
-    src: "/figures/finetuned_trajectory_vs_ground_truth.png",
+    src: asset("figures/finetuned_trajectory_vs_ground_truth.png"),
     title: "Fine-tuned VO vs. ground truth",
     caption: "Predicted motion is compared against Unity ground truth after standard similarity alignment.",
   },
   {
-    src: "/figures/finetuned_vs_xvo_baseline_trajectory.png",
+    src: asset("figures/finetuned_vs_xvo_baseline_trajectory.png"),
     title: "Fine-tuned model vs. XVO baseline",
     caption: "The same trajectory can be compared against a classical ORB/XVO baseline.",
   },
@@ -48,19 +50,19 @@ const figures: Figure[] = [
 
 const sceneCards = [
   {
-    src: "/realDjiExample.png",
+    src: asset("realDjiExample.png"),
     kicker: "Capture",
     title: "Real Drone Survey",
     body: "A DJI Matrice-style workflow captures the real site before reconstruction.",
   },
   {
-    src: "/3dExample.png",
+    src: asset("3dExample.png"),
     kicker: "Reconstruction",
     title: "Photogrammetry Mesh",
     body: "WebODM converts aerial imagery into GLB environments that preserve real texture and structure.",
   },
   {
-    src: "/simBoxExample.png",
+    src: asset("simBoxExample.png"),
     kicker: "Simulation",
     title: "Bounded Flight Volume",
     body: "The simulator fits a flight box above the reconstructed environment for controlled data generation.",
@@ -202,7 +204,7 @@ function App() {
           <div className="relative animate-reveal [animation-delay:160ms]">
             <div className="absolute -inset-4 rounded-[2.5rem] bg-gradient-to-br from-cyan-300/20 via-transparent to-orange-300/20 blur-2xl" />
             <MediaFrame>
-              <video className="h-full w-full object-cover" src="/simDemoDay.mp4" autoPlay muted loop playsInline />
+              <video className="h-full w-full object-cover" src={asset("simDemoDay.mp4")} autoPlay muted loop playsInline />
             </MediaFrame>
             <div className="absolute -bottom-5 left-6 right-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {metrics.map((item) => (
@@ -301,20 +303,20 @@ function App() {
               </div>
             </div>
             <MediaFrame>
-              <img src="/dayExample.png" alt="Unity daytime simulation capture" className="h-full w-full object-cover" />
+              <img src={asset("dayExample.png")} alt="Unity daytime simulation capture" className="h-full w-full object-cover" />
             </MediaFrame>
           </div>
 
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             <GlassCard className="p-0">
-              <img src="/nightExample.png" alt="Night weather mode" className="h-72 w-full object-cover" />
+              <img src={asset("nightExample.png")} alt="Night weather mode" className="h-72 w-full object-cover" />
               <div className="p-6">
                 <h3 className="text-2xl font-black text-white">Lighting variants</h3>
                 <p className="mt-3 leading-7 text-slate-300">Night mode changes ambient light, tint, and sky response to test illumination robustness.</p>
               </div>
             </GlassCard>
             <GlassCard className="p-0">
-              <img src="/rainExample.png" alt="Rain weather mode" className="h-72 w-full object-cover" />
+              <img src={asset("rainExample.png")} alt="Rain weather mode" className="h-72 w-full object-cover" />
               <div className="p-6">
                 <h3 className="text-2xl font-black text-white">Weather stress tests</h3>
                 <p className="mt-3 leading-7 text-slate-300">Rain and darker conditions create controlled shifts in visual quality for future robustness experiments.</p>
@@ -327,7 +329,7 @@ function App() {
           <SectionLabel>Manual VR collection</SectionLabel>
           <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
             <MediaFrame>
-              <video className="h-full w-full object-cover" src="/vrDemoDay.mov" autoPlay muted loop playsInline />
+              <video className="h-full w-full object-cover" src={asset("vrDemoDay.mov")} autoPlay muted loop playsInline />
             </MediaFrame>
             <div>
               <h2 className="text-4xl font-black tracking-[-0.05em] text-white sm:text-6xl">
